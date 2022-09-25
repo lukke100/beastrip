@@ -23,16 +23,15 @@ sub main {
 	my @creatures;
 
 	for (@ARG) {
-		#STDERR->say("parsing '$ARG'");
-
+		STDERR->say("parsing '$ARG'");
 		my $creature = parsefile($ARG);
 
 		fixorganization($creature);
-
 		push @creatures, $creature;
 	}
 
 	STDERR->say('printing environment rows');
+	open my $envfile, '>', 'environment.tsv';
 
 	for (@creatures) {
 		my $neighbors = countneighbors($ARG, @creatures);
@@ -40,10 +39,21 @@ sub main {
 		$ARG->{ratio} = @creatures / $neighbors;
 
 		for (creature2ecorows($ARG)) {
-			STDOUT->say(join "\t", @{$ARG});
+			$envfile->say(join "\t", @{$ARG});
 		}
 	}
 
+	close $envfile;
+	STDERR->say('printing organization rows');
+	open my $orgfile, '>', 'organization.tsv';
+
+	for (@creatures) {
+		for (creature2orgrows($ARG)) {
+			$orgfile->say(join "\t", @{$ARG});
+		}
+	}
+
+	close $orgfile;
 	return;
 }
 
@@ -107,9 +117,8 @@ sub creature2ecorows {
 		}
 	}
 
-	my @environment  = [q{}, q{}, q{}, q{}];
-	my $sources      = join ', ', @sources;
-	my $organization = q{};
+	my @environment = [q{}, q{}, q{}, q{}];
+	my $sources     = join ', ', @sources;
 
 	if (exists $creature->{environment}) {
 		@environment = @{$creature->{environment}};
@@ -129,6 +138,44 @@ sub creature2ecorows {
 		push @row, $climate, $terrain, $plane, $special;
 		push @row, $sources;
 		push @row, sprintf '%.2f%%', 100 * $creature->{ratio};
+
+		push @results, \@row;
+	}
+
+	return @results;
+}
+
+sub creature2orgrows {
+	my ($creature) = @ARG;
+	my @sources;
+
+	if (exists $creature->{sources}) {
+		for (@{$creature->{sources}}) {
+			my ($book, $page) = @{$ARG};
+
+			push @sources, "$book pg. $page";
+		}
+	}
+
+	my @organization = [q{}, q{}, q{}, q{}];
+	my $sources      = join ', ', @sources;
+
+	if (exists $creature->{organization}) {
+		@organization = @{$creature->{organization}};
+	}
+
+	my @results;
+
+	for (@organization) {
+		my ($org, $min, $max, $extra) = @{$ARG};
+		my @row;
+
+		push @row, $creature->{name};
+		push @row, $org   || q{};
+		push @row, $min   || q{};
+		push @row, $max   || q{};
+		push @row, $extra || q{};
+		push @row, $sources;
 
 		push @results, \@row;
 	}
@@ -1146,8 +1193,6 @@ sub parseorganization {
 		colony      => ['colony',     13, 30, q{}],
 		);
 
-	my @results;
-
 # TODO: what do I do with this?
 # 'plus mounts (use statistics for ankylosaurus, pathfinder RPG bestiary 83)'
 
@@ -1225,6 +1270,8 @@ sub parseorganization {
 	$dp->add(re2sub(qr/\A$range[ ]$trait[ ]$extra\z/msx));
 	$dp->add(re2sub(qr/\A$roll\z/msx));
 	$dp->add(re2sub(qr/\A$roll[ ]$extra\z/msx));
+
+	my @results;
 
 	for (@orgs) {
 		my ($name, $desc) = @{$ARG};
@@ -1314,8 +1361,11 @@ sub fixorganization {
 
 		STDERR->printf("% 3u: %-40s %-18s %3s %3s %s\n", ++$num,
 		               "$name:", $org, $min, $max, $extra);
+
+		@{$ARG} = ($org, $min, $max, $extra);
 	}
 
+	$creature->{organization} = \@orgs;
 	return;
 }
 

@@ -1,3 +1,5 @@
 severity = 1
-# perltidy is absolute trash
 exclude  = CodeLayout::RequireTidyCode ValuesAndExpressions::ProhibitMagicNumbers
+
+[InputOutput::RequireBriefOpen]
+lines = 12
