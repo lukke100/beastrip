@@ -23,7 +23,7 @@ sub main {
 	my @creatures;
 
 	for (@ARG) {
-		STDERR->say("parsing '$ARG'");
+		#STDERR->say("parsing '$ARG'");
 		my $creature = parsefile($ARG);
 
 		fixorganization($creature);
@@ -219,6 +219,7 @@ sub parsefile {
 
 	$lines =~ s/\[IMAGE\]//gmsx;
 	$lines =~ s/\bR'lyeh\b/r'lyeh/gmsx;
+	$lines =~ s/NPcs/NPCs/gmsx;
 
 	my $dp = mkdpintro();
 	my %dp = (
@@ -1116,6 +1117,12 @@ sub parseorganization {
 	$str =~ s/[(]([^()]+)\z/($1)/msx;
 	$str =~ s/[.,]\z//msx;
 
+	my $suffix = q{};
+
+	if ($str =~ s/,[ ]plus[ ](mounts[ ]$descre)\z//msx) {
+		$suffix = $1;
+	}
+
 	my $pos = 0;
 	my @orgs;
 
@@ -1192,9 +1199,6 @@ sub parseorganization {
 		# nightgaunt (b4 203)
 		colony      => ['colony',     13, 30, q{}],
 		);
-
-# TODO: what do I do with this?
-# 'plus mounts (use statistics for ankylosaurus, pathfinder RPG bestiary 83)'
 
 	my %fallback = (
 		'band (with 3-12 lizardfolk)' => [
@@ -1311,28 +1315,50 @@ sub parseorganization {
 			next;
 		}
 
-		my %desc = %{$descs[0]};
+		my @info = orginfo2array(name => $name, %{$descs[0]});
+		push @results, [@info];
+	}
 
-		if (exists $desc{die}) {
-			$desc{max} = $desc{min} * $desc{die};
+	for (@results) {
+		if ($suffix eq q{}) {
+			next;
 		}
 
-		if (exists $desc{trait}) {
-			$name = "$name ($desc{trait})";
+		if ($ARG->[-1] ne q{}) {
+			$ARG->[-1] .= ', plus ';
 		}
 
-		my @maps = qw{min max extra};
-		my @desc;
-
-		for (0 .. $#maps) {
-			my $key = $maps[$ARG];
-			$desc[$ARG] = exists $desc{$key}? $desc{$key} : q{};
-		}
-
-		push @results, [$name, @desc];
+		$ARG->[-1] .= $suffix;
 	}
 
 	return @results;
+}
+
+sub orginfo2array {
+	my %info = @ARG;
+
+	if (exists $info{die}) {
+		$info{max} = $info{min} * $info{die};
+	}
+
+	if (exists $info{trait}) {
+		$info{name} = "$info{name} ($info{trait})";
+	}
+
+	my @maps = qw{name min max extra};
+	my @result;
+
+	for (0 .. $#maps) {
+		my $key = $maps[$ARG];
+
+		if (exists $info{$key}) {
+			$result[$ARG] = $info{$key};
+		} else {
+			$result[$ARG] = q{};
+		}
+	}
+
+	return @result;
 }
 
 our $num;
